@@ -17,20 +17,19 @@ interface CompletedTodoProps {
 
 const CompleteTodo:React.FC<CompletedTodoProps> = ({ todos }) => {
      const [currentPage, setCurrentPage] = useState(1);
-        const todosPerPage = 4;
+        const todosPerPage = 3;
     
         const totalPages = Math.ceil(todos.length / todosPerPage);
         const startIndex = (currentPage - 1) * todosPerPage;
         const currentTodos = todos.slice(startIndex, startIndex + todosPerPage);
   return (
-    <div className='md:w-[400px] w-full h-auto flex items-center justify-center rounded-2xl bg-gray-500'>
-            <div className='w-full h-full mx-4 my-4 rounded-2xl px-4 py-3 bg-white'>
-                <div className='flex flex-col gap-4'>
+    <div className='md:w-[500px] w-full h-auto flex items-center justify-center rounded-2xl bg-white px-4 py-4 shadow-md'>
+                <div className='flex flex-col gap-4 w-full'>
                 <p className='text-2xl font-bold text-green-500 text-center'>Completed Task</p>
                     {currentTodos.length > 0 ? (
                         currentTodos.map((todo) => <TodoCard key={todo._id} {...todo} />)
                     ) : (
-                        <p className="text-center text-gray-500">No pending todos.</p>
+                        <p className="text-center text-gray-500">No Completed todos.</p>
                     )}
                     {
                         totalPages > 1 && (
@@ -67,7 +66,6 @@ const CompleteTodo:React.FC<CompletedTodoProps> = ({ todos }) => {
                         )
                     }
                 </div>
-            </div>
         </div>
   )
 }

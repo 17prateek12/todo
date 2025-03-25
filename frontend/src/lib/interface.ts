@@ -41,12 +41,12 @@ export interface TodoDetail{
     _id: string;
     title: string;
     description: string;
-    priority: string;
-    status: string;
+    priority: "Low" | "Medium" | "High";
+    status: "Pending" | "Completed" | "Overdue";
     tag: string[];
     mentions: IMention[];
     user: IUser;
-    DueDate: string;
+    dueDate: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -55,8 +55,29 @@ export interface createTodo{
     title: string;
     description: string;
     priority: "High" | "Medium" | "Low";
-    status: "Pending" | "Completed";
+    status: "Pending" | "Completed" | "Overdue";
     tag: string[];
     mentions: string[];
     dueDate: string;
+}
+
+export interface TodoFormUpdate{
+    existingTodo ?: TodoDetail;
+    isUpdatingTodo?: boolean
+}
+
+export interface Note {
+    _id: string;
+    content: string;
+    createdAt: string;
+    createdBy: {
+        _id: string;
+        username: string;
+    };
+}
+
+
+export interface TodoNotesProps {
+    todoId: string;
+    token: string;
 }

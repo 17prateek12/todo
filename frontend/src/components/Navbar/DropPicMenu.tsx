@@ -10,11 +10,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LogOutUser } from "@/api/ApiCalling";
 import { useNavigate } from 'react-router-dom';
+import dumbpic from '../../asset/l60Hf.png'
 
 
 const DropPicMenu = () => {
 
-    const profilepic: any | null = localStorage.getItem('profilePhoto') || 'https://i.sstatic.net/l60Hf.png';
+    const profilepic: any | null = localStorage.getItem('profilePhoto');
     const token = localStorage.getItem("accessToken");
     const navigate = useNavigate();
 
@@ -36,7 +37,8 @@ const DropPicMenu = () => {
             <DropdownMenuTrigger asChild>
                 <div className='w-10 h-10 rounded-full flex items-center justify-center overflow-hidden border border-black'>
                     <img
-                        src={profilepic === 'https://i.sstatic.net/l60Hf.png' ? 'https://i.sstatic.net/l60Hf.png' : `http://localhost:5000${profilepic}`}
+                    //src={dumbpic}
+                        src={profilepic === '' ? dumbpic : `http://localhost:5000${profilepic}`}
                         alt='Profile'
                         className='w-full h-full object-cover'
                     />

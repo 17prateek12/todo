@@ -18,7 +18,7 @@ const todoSchema = new Schema<ITodo>({
     },
     status: {
         type: String,
-        enum: ['Pending', 'Completed'],
+        enum: ['Pending', 'Completed' , 'Overdue'],
         default: 'Pending',
     },
     tag: [{
@@ -40,12 +40,28 @@ const todoSchema = new Schema<ITodo>({
         ref: "User",
         required: true
     },
-    DueDate: {
+    dueDate: {
         type: Date,
         required: true,
     },
+    notes:[{
+        type: Schema.Types.ObjectId,
+        ref:'Notes',
+    }]
 }, {
     timestamps: true
 });
 
+todoSchema.pre("find", async function (next) {
+    await this.model.updateMany(
+        { status: "Pending", dueDate: { $lt: new Date() } },
+        { $set: { status: "Overdue" } },
+        { multi: true }
+    );
+    next();
+});
+
+
+
 export default mongoose.model<ITodo>("Todo", todoSchema);
+

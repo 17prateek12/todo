@@ -19,15 +19,14 @@ interface PendingTodoProps {
 const PendingTodo: React.FC<PendingTodoProps> = ({ todos }) => {
 
     const [currentPage, setCurrentPage] = useState(1);
-    const todosPerPage = 4;
+    const todosPerPage = 3;
 
     const totalPages = Math.ceil(todos.length / todosPerPage);
     const startIndex = (currentPage - 1) * todosPerPage;
     const currentTodos = todos.slice(startIndex, startIndex + todosPerPage);
     return (
-        <div className='md:w-[400px] w-full h-auto flex items-center justify-center rounded-2xl bg-gray-500'>
-            <div className='w-full h-full mx-4 my-4 rounded-2xl px-4 py-3 bg-white'>
-                <div className='flex flex-col gap-4'>
+        <div className='md:w-[500px] w-full h-auto flex items-center justify-center rounded-2xl bg-white px-4 py-4 shadow-md'>
+                <div className='flex flex-col gap-4 w-full'>
                     <p className='text-2xl font-bold text-red-500 text-center'>Pending Task</p>
                     {currentTodos.length > 0 ? (
                         currentTodos.map((todo) => <TodoCard key={todo._id} {...todo} />)
@@ -69,7 +68,6 @@ const PendingTodo: React.FC<PendingTodoProps> = ({ todos }) => {
                         )
                     }
                 </div>
-            </div>
         </div>
     )
 }

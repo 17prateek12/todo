@@ -23,12 +23,15 @@ const userSchema = new Schema<IUser>({
     profilePhoto: {
         type: String,
         required: false,
-        default: "https://i.sstatic.net/l60Hf.png"
     },
     registrationTime: {
         type: String,
         required: true,
     },
+    todos:[{
+        type: Schema.Types.ObjectId,
+        ref:'Todo'
+    }]
 }, {
     timestamps: true,
 });

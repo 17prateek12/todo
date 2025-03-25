@@ -8,6 +8,7 @@ export interface IUser extends Document{
     displayname:string;
     profilePhoto:string;
     registrationTime:string;
+    todos: mongoose.Types.ObjectId;
 };
 
 export interface DecodeToken{
@@ -26,14 +27,22 @@ export interface IMention extends Request{
     username: string;
 }
 
+
+export interface INotes extends Request{
+    todo:mongoose.Types.ObjectId;
+    content: string;
+    createdBy:mongoose.Types.ObjectId;
+    createdAt:Date;
+};
+
 export interface ITodo extends Request{
     title: string;
     description?: string;
     priority: 'High' | 'Medium' | 'Low';
-    status: 'Pending' | 'Completed';
+    status: 'Pending' | 'Completed' | 'Overdue';
     tag:string[];
     mentions: IMention[];
     user: mongoose.Types.ObjectId;
-    createdAt: Date;
-    DueDate: Date;
+    dueDate: Date;
+    notes: INotes;
 };

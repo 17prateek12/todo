@@ -2,8 +2,10 @@ import Todo from '../schemas/todoSchema';
 import { Request, Response } from 'express';
 import asyncHandler from "express-async-handler";
 import User from '../schemas/userSchema';
-import { AuthenticationRequest } from '../interface/interface';
+import { AuthenticationRequest, IMention } from '../interface/interface';
 import mongoose from 'mongoose';
+import Notes from '../schemas/noteSchema';
+import { Parser } from "json2csv";
 
 const createTodo = asyncHandler(async (req: AuthenticationRequest, res: Response): Promise<void> => {
     try {
@@ -65,7 +67,7 @@ const createTodo = asyncHandler(async (req: AuthenticationRequest, res: Response
             tag: Array.isArray(tag) ? tag : tag.split(",").map((t: string) => t.trim()),
             mentions: validMentions,
             user: userId,
-            DueDate: new Date(dueDate),
+            dueDate: new Date(dueDate),
         });
 
         await newTodo.validate();
@@ -83,28 +85,68 @@ const createTodo = asyncHandler(async (req: AuthenticationRequest, res: Response
 
 const getAllTodos = asyncHandler(async (req: AuthenticationRequest, res: Response): Promise<void> => {
     try {
-        const { page = 1, limit = 10, priority, status, tag, sortBy = "createdAt", order = "desc" } = req.query;
+        const { 
+            page = 1, 
+            limit = 10, 
+            priority, 
+            status, 
+            tag, 
+            user, 
+            sortBy = "createdAt", 
+            order = "desc",
+            exportFormat // "json" or "csv"
+        } = req.query;
 
         if (!req.user || !req.user.userId) {
             res.status(401).json({ message: "Unauthorized" });
             return;
         }
 
-        const filter: any = { user: req.user.userId };
+        const userId = req.user.userId;
+
+        // Building the filter object
+        const filter: any = {
+            $or: [
+                { user: userId },
+                { "mentions.userId": userId }
+            ]
+        };
+
         if (priority) filter.priority = priority;
         if (status) filter.status = status;
-        if (typeof tag === "string") {
-            filter.tag = { $in: tag.split(",") };
-        }
+        if (typeof tag === "string") filter.tag = { $in: tag.split(",") };
+        if (user) filter.user = user; // Filtering by specific user ID
 
+        // Fetch filtered and sorted todos
         const todos = await Todo.find(filter)
             .sort({ [sortBy as string]: order === "asc" ? 1 : -1 })
             .limit(Number(limit))
             .skip((Number(page) - 1) * Number(limit))
-            .populate("user", "username email");
+            .populate("user", "username email")
+            .populate("mentions.userId", "username email");
 
         const totalTodos = await Todo.countDocuments(filter);
 
+        // Export logic
+        if (exportFormat === "csv") {
+            const fields = ["_id", "title", "priority", "status", "tag", "createdAt", "updatedAt"];
+            const json2csvParser = new Parser({ fields });
+            const csv = json2csvParser.parse(todos);
+
+            res.header("Content-Type", "text/csv");
+            res.attachment("todos.csv");
+            res.send(csv);
+            return;
+        }
+
+        if (exportFormat === "json") {
+            res.header("Content-Type", "application/json");
+            res.attachment("todos.json");
+            res.send(JSON.stringify(todos, null, 2));
+            return;
+        }
+
+        // Default JSON response (paginated)
         res.status(200).json({
             totalTodos,
             totalPages: Math.ceil(totalTodos / Number(limit)),
@@ -133,6 +175,7 @@ const getTodoById = asyncHandler(async (req: Request, res: Response): Promise<vo
     }
 });
 
+
 const updateTodo = asyncHandler(async (req: AuthenticationRequest, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
@@ -141,54 +184,46 @@ const updateTodo = asyncHandler(async (req: AuthenticationRequest, res: Response
 
         if (!userId) {
             res.status(401).json({ message: "Unauthorized" });
-            return;
+            return
         }
 
         let todo = await Todo.findById(id);
-
         if (!todo) {
             res.status(404).json({ message: "Todo not found" });
-            return;
+            return 
         }
 
         if (todo.user.toString() !== userId) {
             res.status(403).json({ message: "You are not authorized to update this todo" });
-            return;
+            return 
         }
 
-        let validMentions: { userId: mongoose.Types.ObjectId; username: string }[] = [];
+        if (title) todo.title = title;
+        if (description) todo.description = description;
+        if (priority) todo.priority = priority;
+        if (status) todo.status = status;
+        if (tag) todo.tag = Array.isArray(tag) ? tag : tag.split(",").map((t: string) => t.trim());
+        if (dueDate) todo.dueDate = new Date(dueDate);
 
         if (mentions && mentions.length > 0) {
-            const cleanedMentions = mentions.map((name: string) => name.startsWith("@") ? name.slice(1) : name);
-            const existingUsers = await User.find({ username: { $in: cleanedMentions } });
-
-            validMentions = existingUsers.map((user) => ({
-                userId: user._id as mongoose.Types.ObjectId,
+            const existingUsers = await User.find({ username: { $in: mentions } });
+        
+            todo.mentions = existingUsers.map(user => ({
+                userId: user._id,
                 username: user.username,
-            }));
+            })) as unknown as IMention[];
         }
 
-        const updatedTodo = await Todo.findByIdAndUpdate(
-            id,
-            {
-                title,
-                description,
-                priority,
-                status,
-                tag: Array.isArray(tag) ? tag : tag.split(",").map((t: string) => t.trim()),
-                mentions: validMentions,
-                dueDate: new Date(dueDate),
-            },
-            { new: true, runValidators: true }
-        );
+        await todo.save();
 
         console.log("Todo updated successfully!");
-        res.status(200).json(updatedTodo);
+        res.status(200).json(todo);
     } catch (error) {
         console.error("Error updating todo:", error);
         res.status(500).json({ message: (error as Error).message });
     }
 });
+
 
 
 const deleteTodo = asyncHandler(async (req: AuthenticationRequest, res: Response): Promise<void> => {
@@ -223,5 +258,82 @@ const deleteTodo = asyncHandler(async (req: AuthenticationRequest, res: Response
     }
 });
 
+const addNoteToTodo = asyncHandler(async (req:AuthenticationRequest, res: Response): Promise<void> => {
+    try {
+        const { todoId } = req.params;
+        const { content } = req.body;
+        const userId = req.user?.userId;  
 
-export { createTodo, getAllTodos, getTodoById, updateTodo, deleteTodo }
+        const todo = await Todo.findById(todoId).populate("mentions");
+
+        if (!todo){ 
+            res.status(404).json({ message: "Todo not found" });
+            return
+        }
+        if (todo.user.toString() !== userId && !todo.mentions.some(m => m.userId.toString() === userId)) {
+            res.status(403).json({ message: "Not authorized to add notes" });
+            return ;
+        }
+
+        const newNote = await Notes.create({ todo: todoId, content, createdBy: userId });
+
+        todo.notes.push(newNote._id);
+        await todo.save();
+
+        res.status(201).json({ message: "Note added successfully", note: newNote });
+        return
+    } catch (error) {
+        res.status(500).json({ message: "Error adding note", error: (error as Error).message });
+    }
+});
+
+const getTodoNotes = asyncHandler(async (req:AuthenticationRequest, res:Response):Promise<void> => {
+    try {
+        const { todoId } = req.params;
+
+        const todo = await Todo.findById(todoId).populate({
+            path: "notes",
+            populate: { path: "createdBy", select: "username" },
+        });
+
+        if (!todo){ 
+            res.status(404).json({ message: "Todo not found" });
+            return;
+        }
+
+        res.status(200).json(todo.notes);
+        return
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching notes", error: (error as Error).message });
+    }
+});
+
+const deleteNote = asyncHandler(async (req:AuthenticationRequest, res: Response): Promise<void> => {
+    try {
+        const { noteId } = req.params;
+        const userId = req.user?.userId;
+
+        const note = await Notes.findById(noteId);
+        if (!note){
+            res.status(404).json({ message: "Note not found" });
+            return;
+        }
+
+        if (note.createdBy.toString() !== userId) {
+            res.status(403).json({ message: "Not authorized to delete this note" });
+            return
+        }
+
+        await Notes.findByIdAndDelete(noteId);
+
+        await Todo.findByIdAndUpdate(note.todo, { $pull: { notes: noteId } });
+
+        res.status(200).json({ message: "Note deleted successfully" });
+        return
+    } catch (error) {
+        res.status(500).json({ message: "Error deleting note", error: (error as Error).message });
+    }
+});
+
+
+export { createTodo, getAllTodos, getTodoById, updateTodo, deleteTodo, addNoteToTodo, getTodoNotes ,deleteNote }

@@ -33,7 +33,7 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
     const salt = await bcrypt.genSalt(10);
     const hashpassword = await bcrypt.hash(password + registrationTime, salt);
 
-    const profilePhoto = req.file ? `/uploads/${req.file.filename}` : "https://i.sstatic.net/l60Hf.png";
+    const profilePhoto = req.file ? `/uploads/${req.file.filename}` : "";
 
     const user = await User.create({
         username,
